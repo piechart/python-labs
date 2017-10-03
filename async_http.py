@@ -57,13 +57,15 @@ class AsyncServer(asyncore.dispatcher):
 class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def __init__(self, sock):
-        pass
+        super().__init__(sock)
+        self.set_terminator(b"\r\n\r\n")
 
     def collect_incoming_data(self, data):
-        pass
+        log.debug(f"Incoming data: {data}")
+        self._collect_incoming_data(data)
 
     def found_terminator(self):
-        pass
+        self.parse_request()
 
     def parse_request(self):
         pass
@@ -72,13 +74,29 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         pass
 
     def handle_request(self):
-        pass
+        method_name = 'do_' + self.method
+        if not hasattr(self, method_name):
+            self.send_error(405)
+            self.handle_close()
+            return
+        handler = getattr(self, method_name)
+        handler()
 
     def send_header(self, keyword, value):
         pass
 
     def send_error(self, code, message=None):
-        pass
+        try:
+            short_msg, long_msg = self.responses[code]
+        except KeyError:
+            short_msg, long_msg = '???', '???'
+        if message is None:
+            message = short_msg
+
+        self.send_response(code, message)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Connection", "close")
+        self.end_headers()
 
     def send_response(self, code, message=None):
         pass
