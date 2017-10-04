@@ -8,7 +8,7 @@ import os
 from urlparse import parse_qs
 import urllib
 import argparse
-from time import strftime, gmtime
+import time
 
 
 def url_normalize(path):
@@ -58,7 +58,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def __init__(self, sock):
         super().__init__(sock)
-        self.set_terminator(b"\r\n\r\n")
+        self.terminator = "\r\n"
+        self.set_terminator(b(str(self.terminator * 2)))
 
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
@@ -101,7 +102,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         handler()
 
     def send_header(self, keyword, value):
-        pass
+        self.wfile.write(f"{keyword}: {value}{self.terminator}")
 
     def send_error(self, code, message=None):
         try:
@@ -120,11 +121,15 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         pass
 
     def end_headers(self):
-        pass
+        self.wfile.write(self.terminator)
+
+    weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    monthname = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     def date_time_string(self):
-        pass
-
+        year, month, day, hh, mm, ss, wd, y, z = time.gmtime(time.time())
+        return f"{self.weekdayname[wd]}, {day} {self.monthname[month]} {year} {hh}:{mm}:{ss} GMT"
+        
     def send_head(self):
         pass
 
