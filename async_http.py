@@ -64,7 +64,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         super().__init__(sock)
         self.terminator = "\r\n"
         self.set_terminator(b(str(self.terminator * 2)))
-        self.headers = {}
+        self.headers = {} # incoming
+        self.response_lines = []
 
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
@@ -73,6 +74,15 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def found_terminator(self):
         self.headers_parsed = False
         self.parse_request()
+        
+    def handle_request(self):
+        method_name = 'do_' + self.method
+        if not hasattr(self, method_name):
+            self.send_error(405)
+            self.handle_close()
+            return
+        handler = getattr(self, method_name)
+        handler()
 
     def parse_request(self):
         if not self.headers_parsed:
@@ -81,7 +91,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 self.send_error(400)
                 self.handle_close()
             if self.method == 'POST':
-                length = self.headers.getheader('content-length')
+                length = self.headers['content-length']
                 if length.isnumeric():
                     if int(length) > 0:
                         # дочитать запрос
@@ -94,32 +104,23 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def list2dict(headers):
         result = {}
         for header in headers:
-            key = header.split(':')[0]
-            value = header.replace(key + ': ', '')
+            key = header.split(':')[0].lower()
+            value = header[len(key) + 2:] # Host + : + ' ' = len() + 2
             result[key] = value
         return result
 
     def parse_headers(self):
         raw = self._get_data()
         if self.method == 'GET':
-            self.headers = list2dict(raw.split(self.terminator)[1:])
+            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*'
+            self.headers = self.list2dict(raw.split(self.terminator)[1:])
         if self.method == 'POST':
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
-            headers = raw.split(self.terminator * 2)[:1][0]
-            self.headers = list2dict(headers.split(self.terminator)[1:])
-        
-    def handle_request(self):
-        method_name = 'do_' + self.method
-        if not hasattr(self, method_name):
-            self.send_error(405)
-            self.handle_close()
-            return
-        handler = getattr(self, method_name)
-        handler()
+            head = raw.split(self.terminator * 2)[:1][0]
+            self.headers = self.list2dict(head.split(self.terminator)[1:])
 
     def send_header(self, keyword, value):
-        pass
-        # self.wfile.write(f"{keyword}: {value}{self.terminator}")
+        self.response_lines.append(f"{keyword}: {value}{self.terminator}")
 
     def send_error(self, code, message=None):
         try:
@@ -134,13 +135,11 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.send_header("Connection", "close")
         self.end_headers()
 
-    def send_response(self, code, message=None):
-        pass
-        # self.wfile.write(f"HTTP/1.1 {code}{self.terminator}")
+    def send_response(self, code, message=None): # begin_headers
+        self.response_lines.append(f"HTTP/1.1 {code}{self.terminator}")
 
     def end_headers(self):
-        pass
-        # self.wfile.write(self.terminator)
+        self.response_lines.append(self.terminator)
 
     weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     monthname = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
