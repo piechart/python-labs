@@ -119,9 +119,6 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             head = raw.split(self.terminator * 2)[:1][0]
             self.headers = self.list2dict(head.split(self.terminator)[1:])
 
-    def send_header(self, keyword, value):
-        self.response_lines.append(f"{keyword}: {value}{self.terminator}")
-
     def send_error(self, code, message=None):
         try:
             long_msg = self.responses[code]
@@ -137,6 +134,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def send_response(self, code, message=None): # begin_headers
         self.response_lines.append(f"HTTP/1.1 {code}{self.terminator}")
+        
+    def send_header(self, keyword, value):
+        self.response_lines.append(f"{keyword}: {value}{self.terminator}")
 
     def end_headers(self):
         self.response_lines.append(self.terminator)
@@ -149,7 +149,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         return f"{self.weekdayname[wd]}, {day} {self.monthname[month]} {year} {hh}:{mm}:{ss} GMT"
         
     def send_head(self):
-        pass
+        for (key, value) in self.headers.iteritems():
+            self.send_header(key, value)
 
     def translate_path(self, path):
         if path.startswith("."):
@@ -169,6 +170,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         pass
 
     def do_HEAD(self):
+        pass
+        
+    def do_POST(self):
         pass
 
     responses = {
