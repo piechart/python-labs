@@ -5,11 +5,11 @@ import multiprocessing
 import logging
 import mimetypes
 import os
-from urlparse import parse_qs
 import urllib
 import argparse
-from time import strftime, gmtime
+import time
 
+# _get_data()
 
 def url_normalize(path):
     if path.startswith("."):
@@ -45,10 +45,14 @@ class FileProducer(object):
 class AsyncServer(asyncore.dispatcher):
 
     def __init__(self, host="127.0.0.1", port=9000):
-        pass
+        super().__init__()
+        self.create_socket()
+        self.set_reuse_addr()
+        self.bind((host, port))
+        self.listen(5)
 
     def handle_accept(self):
-        pass
+        AsyncHTTPRequestHandler(sock)
 
     def serve_forever(self):
         pass
@@ -57,61 +61,129 @@ class AsyncServer(asyncore.dispatcher):
 class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def __init__(self, sock):
-        pass
+        super().__init__(sock)
+        self.terminator = "\r\n"
+        self.set_terminator(b(str(self.terminator * 2)))
+        self.headers = {} # incoming
+        self.response_lines = []
 
     def collect_incoming_data(self, data):
-        pass
+        log.debug(f"Incoming data: {data}")
+        self._collect_incoming_data(data)
 
     def found_terminator(self):
-        pass
+        self.headers_parsed = False
+        self.parse_request()
+        
+    def handle_request(self):
+        method_name = 'do_' + self.method
+        if not hasattr(self, method_name):
+            self.send_error(405)
+            self.handle_close()
+            return
+        handler = getattr(self, method_name)
+        handler()
 
     def parse_request(self):
-        pass
+        if not self.headers_parsed:
+            self.parse_headers()
+            if self.headers_parsing_failed:
+                self.send_error(400)
+                self.handle_close()
+            if self.method == 'POST':
+                length = self.headers['content-length']
+                if length.isnumeric():
+                    if int(length) > 0:
+                        self.handle_read()
+                        return
+                self.handle_request()
+        else:
+            # получить тело ???
+            self.handle_request()
+
+    def list2dict(headers):
+        result = {}
+        for header in headers:
+            key = header.split(':')[0].lower()
+            value = header[len(key) + 2:] # Host + : + ' ' = len() + 2
+            result[key] = value
+        return result
 
     def parse_headers(self):
-        pass
-
-    def handle_request(self):
-        pass
-
-    def send_header(self, keyword, value):
-        pass
+        raw = self._get_data()
+        if self.method == 'GET':
+            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*'
+            self.headers = self.list2dict(raw.split(self.terminator)[1:])
+        if self.method == 'POST':
+            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
+            head = raw.split(self.terminator * 2)[:1][0]
+            self.headers = self.list2dict(head.split(self.terminator)[1:])
 
     def send_error(self, code, message=None):
-        pass
+        try:
+            long_msg = self.responses[code]
+        except KeyError:
+            long_msg = "Unexpected error"
+        if message is None:
+            message = long_msg
 
-    def send_response(self, code, message=None):
-        pass
+        self.send_response(code, message)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Connection", "close")
+        self.end_headers()
 
-    def end_headers(self):
-        pass
-
-    def date_time_string(self):
-        pass
-
+    def send_response(self, code, message=None): # begin_headers
+        self.response_lines.append(f"{self.protocol_version} {code} {message}{self.terminator}")
+        self.send_head()
+        self.response_lines.append(self.terminator)
+        # -> "".join(self.response_lines)
+        
     def send_head(self):
         pass
+        
+    def send_header(self, keyword, value):
+        self.response_lines.append(f"{keyword}: {value}{self.terminator}")
 
+    def end_headers(self):
+        self.response_lines.append(self.terminator)
+
+    weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    monthname = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+    def date_time_string(self):
+        year, month, day, hh, mm, ss, wd, y, z = time.gmtime(time.time())
+        return f"{self.weekdayname[wd]}, {day} {self.monthname[month]} {year} {hh}:{mm}:{ss} GMT"
+    
     def translate_path(self, path):
-        pass
+        if path.startswith("."):
+            path = "/" + path
+        while "../" in path:
+            p1 = path.find("/..")
+            p2 = path.rfind("/", 0, p1)
+            if p2 != -1:
+                path = path[:p2] + path[p1+3:]
+            else:
+                path = path.replace("/..", "", 1)
+        path = path.replace("/./", "/")
+        path = path.replace("/.", "")
+        return path
 
     def do_GET(self):
         pass
 
     def do_HEAD(self):
         pass
+        
+    def do_POST(self):
+        pass
 
     responses = {
-        200: ('OK', 'Request fulfilled, document follows'),
-        400: ('Bad Request',
-            'Bad request syntax or unsupported method'),
-        403: ('Forbidden',
-            'Request forbidden -- authorization will not help'),
-        404: ('Not Found', 'Nothing matches the given URI'),
-        405: ('Method Not Allowed',
-            'Specified method is invalid for this resource.'),
+        200: 'Request fulfilled, document follows',
+        400: 'Bad request syntax or unsupported method',
+        403: 'Request forbidden -- authorization will not help',
+        404: 'Nothing matches the given URI',
+        405: 'Specified method is invalid for this resource.'
     }
-
 
 def parse_args():
     parser = argparse.ArgumentParser("Simple asynchronous web-server")
@@ -137,6 +209,6 @@ if __name__ == "__main__":
     log = logging.getLogger(__name__)
 
     DOCUMENT_ROOT = args.document_root
-    for _ in xrange(args.nworkers):
-        p = multiprocessing.Process(target=run)
-        p.start()
+    # for _ in range(args.nworkers):
+    p = multiprocessing.Process(target=run)
+    p.start()
