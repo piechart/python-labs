@@ -5,11 +5,11 @@ import multiprocessing
 import logging
 import mimetypes
 import os
-from urlparse import parse_qs
 import urllib
 import argparse
 import time
 
+# _get_data()
 
 def url_normalize(path):
     if path.startswith("."):
@@ -45,10 +45,14 @@ class FileProducer(object):
 class AsyncServer(asyncore.dispatcher):
 
     def __init__(self, host="127.0.0.1", port=9000):
-        pass
+        super().__init__()
+        self.create_socket()
+        self.set_reuse_addr()
+        self.bind((host, port))
+        self.listen(5)
 
     def handle_accept(self):
-        pass
+        AsyncHTTPRequestHandler(sock)
 
     def serve_forever(self):
         pass
@@ -60,6 +64,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         super().__init__(sock)
         self.terminator = "\r\n"
         self.set_terminator(b(str(self.terminator * 2)))
+        self.headers = {}
 
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
@@ -86,12 +91,23 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             # получить тело
             self.handle_request()
 
+    def list2dict(headers):
+        result = {}
+        for header in headers:
+            key = header.split(':')[0]
+            value = header.replace(key + ': ', '')
+            result[key] = value
+        return result
 
     def parse_headers(self):
-        ###
-        # on fail: self.headers_parsing_failed = True
-        ###
-
+        raw = self._get_data()
+        if self.method == 'GET':
+            self.headers = list2dict(raw.split(self.terminator)[1:])
+        if self.method == 'POST':
+            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
+            headers = raw.split(self.terminator * 2)[:1][0]
+            self.headers = list2dict(headers.split(self.terminator)[1:])
+        
     def handle_request(self):
         method_name = 'do_' + self.method
         if not hasattr(self, method_name):
@@ -102,15 +118,16 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         handler()
 
     def send_header(self, keyword, value):
-        self.wfile.write(f"{keyword}: {value}{self.terminator}")
+        pass
+        # self.wfile.write(f"{keyword}: {value}{self.terminator}")
 
     def send_error(self, code, message=None):
         try:
-            short_msg, long_msg = self.responses[code]
+            long_msg = self.responses[code]
         except KeyError:
-            short_msg, long_msg = "Unexpected error", "Unexpected error"
+            long_msg = "Unexpected error"
         if message is None:
-            message = short_msg
+            message = long_msg
 
         self.send_response(code, message)
         self.send_header("Content-Type", "text/plain")
@@ -119,9 +136,11 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def send_response(self, code, message=None):
         pass
+        # self.wfile.write(f"HTTP/1.1 {code}{self.terminator}")
 
     def end_headers(self):
-        self.wfile.write(self.terminator)
+        pass
+        # self.wfile.write(self.terminator)
 
     weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     monthname = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -154,16 +173,12 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         pass
 
     responses = {
-        200: ('OK', 'Request fulfilled, document follows'),
-        400: ('Bad Request',
-            'Bad request syntax or unsupported method'),
-        403: ('Forbidden',
-            'Request forbidden -- authorization will not help'),
-        404: ('Not Found', 'Nothing matches the given URI'),
-        405: ('Method Not Allowed',
-            'Specified method is invalid for this resource.'),
+        200: 'Request fulfilled, document follows',
+        400: 'Bad request syntax or unsupported method',
+        403: 'Request forbidden -- authorization will not help',
+        404: 'Nothing matches the given URI',
+        405: 'Specified method is invalid for this resource.'
     }
-
 
 def parse_args():
     parser = argparse.ArgumentParser("Simple asynchronous web-server")
@@ -189,6 +204,6 @@ if __name__ == "__main__":
     log = logging.getLogger(__name__)
 
     DOCUMENT_ROOT = args.document_root
-    for _ in xrange(args.nworkers):
-        p = multiprocessing.Process(target=run)
-        p.start()
+    # for _ in range(args.nworkers):
+    p = multiprocessing.Process(target=run)
+    p.start()
