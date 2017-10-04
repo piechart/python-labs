@@ -65,13 +65,31 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self._collect_incoming_data(data)
 
     def found_terminator(self):
+        self.headers_parsed = False
         self.parse_request()
 
     def parse_request(self):
-        pass
+        if not self.headers_parsed:
+            self.parse_headers()
+            if self.headers_parsing_failed:
+                self.send_error(400)
+                self.handle_close()
+            if self.method == 'POST':
+                length = self.headers.getheader('content-length')
+                if length.isnumeric():
+                    if int(length) > 0:
+                        # дочитать запрос
+                        return
+                self.handle_request()
+        else:
+            # получить тело
+            self.handle_request()
+
 
     def parse_headers(self):
-        pass
+        ###
+        # on fail: self.headers_parsing_failed = True
+        ###
 
     def handle_request(self):
         method_name = 'do_' + self.method
@@ -89,7 +107,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         try:
             short_msg, long_msg = self.responses[code]
         except KeyError:
-            short_msg, long_msg = '???', '???'
+            short_msg, long_msg = "Unexpected error", "Unexpected error"
         if message is None:
             message = short_msg
 
@@ -111,7 +129,18 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         pass
 
     def translate_path(self, path):
-        pass
+        if path.startswith("."):
+            path = "/" + path
+        while "../" in path:
+            p1 = path.find("/..")
+            p2 = path.rfind("/", 0, p1)
+            if p2 != -1:
+                path = path[:p2] + path[p1+3:]
+            else:
+                path = path.replace("/..", "", 1)
+        path = path.replace("/./", "/")
+        path = path.replace("/.", "")
+        return path
 
     def do_GET(self):
         pass
