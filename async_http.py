@@ -94,11 +94,11 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 length = self.headers['content-length']
                 if length.isnumeric():
                     if int(length) > 0:
-                        # дочитать запрос
+                        # дочитать запрос ???
                         return
                 self.handle_request()
         else:
-            # получить тело
+            # получить тело ???
             self.handle_request()
 
     def list2dict(headers):
@@ -133,7 +133,15 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.end_headers()
 
     def send_response(self, code, message=None): # begin_headers
-        self.response_lines.append(f"HTTP/1.1 {code}{self.terminator}")
+        self.response_lines.append(f"{self.protocol_version} {code} {message}{self.terminator}")
+        self.send_head()
+        self.response_lines.append(self.terminator)
+        # -> "".join(self.response_lines)
+        
+    def send_head(self):
+        pass
+        # for (key, value) in self.headers.iteritems():
+        #     self.send_header(key, value)
         
     def send_header(self, keyword, value):
         self.response_lines.append(f"{keyword}: {value}{self.terminator}")
@@ -142,16 +150,12 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.response_lines.append(self.terminator)
 
     weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    monthname = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    monthname = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     def date_time_string(self):
         year, month, day, hh, mm, ss, wd, y, z = time.gmtime(time.time())
         return f"{self.weekdayname[wd]}, {day} {self.monthname[month]} {year} {hh}:{mm}:{ss} GMT"
-        
-    def send_head(self):
-        for (key, value) in self.headers.iteritems():
-            self.send_header(key, value)
-
+    
     def translate_path(self, path):
         if path.startswith("."):
             path = "/" + path
