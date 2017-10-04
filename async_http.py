@@ -94,7 +94,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 length = self.headers['content-length']
                 if length.isnumeric():
                     if int(length) > 0:
-                        # дочитать запрос ???
+                        self.handle_read()
                         return
                 self.handle_request()
         else:
@@ -140,8 +140,6 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         
     def send_head(self):
         pass
-        # for (key, value) in self.headers.iteritems():
-        #     self.send_header(key, value)
         
     def send_header(self, keyword, value):
         self.response_lines.append(f"{keyword}: {value}{self.terminator}")
