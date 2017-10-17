@@ -119,6 +119,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             return
         uri = matches[0]
         self.uri = uri[1:-1] # removing spaces from both sides
+        self.uri = self.translate_path(self.uri)
         logging.debug(f"uri: '{self.uri}'")
 
         # parsing headers
@@ -142,6 +143,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
             head = raw.split("\r\n" * 2)[:1][0]
             self.headers = list2dict(head.split("\r\n")[1:])
+
+            self.body = raw.split("\r\n" * 2)[-1:][0]
 
             if 'content-length' not in self.headers:
                 self.wrong_headers = True
@@ -180,12 +183,6 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.respond_with_code(code, message)
         self.handle_close()
 
-    def send_header(self, keyword, value):
-        self.response_lines.append(f"{keyword}: {value}")
-
-    def end_headers(self):
-        self.response_lines.append('')
-
     def fill_response_headers(self):
         server_headers = {
             'Date': self.date_time_string()
@@ -193,6 +190,12 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         for key, value in server_headers.items():
             self.send_header(key, value)
         self.end_headers()
+
+    def send_header(self, keyword, value):
+        self.response_lines.append(f"{keyword}: {value}")
+
+    def end_headers(self):
+        self.response_lines.append('')
 
     def respond_with_code(self, code, message=None): # begin_headers
         logging.debug(">>> respond_with_code <<<")
@@ -203,6 +206,10 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 message = 'Empty'
         self.response_lines = [f"HTTP/{self.protocol_version} {code} {message}"]
         self.fill_response_headers()
+
+        if self.method == 'POST':
+            self.response_lines.append(self.body)
+
         logging.debug(f"response_lines len: {len(self.response_lines)}")
         print(self.term.join(self.response_lines))
         self.handle_close()
@@ -228,6 +235,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         return path
 
     def do_GET(self):
+        # find document by uri
         self.respond_with_code(200)
 
     def do_HEAD(self):
