@@ -42,7 +42,7 @@ class FileProducer(object):
         return ""
 
 
-class AsyncServer(asyncore.dispatcher):
+class AsyncHTTPServer(asyncore.dispatcher):
 
     def __init__(self, host="127.0.0.1", port=9000):
         super().__init__()
@@ -51,45 +51,46 @@ class AsyncServer(asyncore.dispatcher):
         self.bind((host, port))
         self.listen(5)
 
-    def handle_accept(self):
-        AsyncHTTPRequestHandler(sock)
-
     def serve_forever(self):
-        pass
+        asyncore.loop()
 
+    def handle_accepted(self, sock, addr):
+        log.debug(f"Incoming connection from {addr}")
+        AsyncHTTPRequestHandler(sock)
 
 class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def __init__(self, sock):
         super().__init__(sock)
         self.terminator = "\r\n"
-        self.set_terminator(b(str(self.terminator * 2)))
+        self.set_terminator(b"\r\n\r\n")
         self.headers = {} # incoming
+        self.protocol_version = '1.1'
         self.response_lines = []
 
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
         self._collect_incoming_data(data)
+        print(data)
 
     def found_terminator(self):
         self.headers_parsed = False
         self.parse_request()
-        
+
     def handle_request(self):
         method_name = 'do_' + self.method
         if not hasattr(self, method_name):
             self.send_error(405)
-            self.handle_close()
             return
         handler = getattr(self, method_name)
         handler()
 
     def parse_request(self):
+        self.headers_parsing_failed = False
         if not self.headers_parsed:
             self.parse_headers()
             if self.headers_parsing_failed:
                 self.send_error(400)
-                self.handle_close()
             if self.method == 'POST':
                 length = self.headers['content-length']
                 if length.isnumeric():
@@ -111,13 +112,16 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def parse_headers(self):
         raw = self._get_data()
+        self.method = None # REMOVE
         if self.method == 'GET':
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*'
             self.headers = self.list2dict(raw.split(self.terminator)[1:])
-        if self.method == 'POST':
+        elif self.method == 'POST':
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
             head = raw.split(self.terminator * 2)[:1][0]
             self.headers = self.list2dict(head.split(self.terminator)[1:])
+        else:
+            self.send_error(405)
 
     def send_error(self, code, message=None):
         try:
@@ -132,15 +136,17 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.send_header("Connection", "close")
         self.end_headers()
 
+        self.handle_close()
+
     def send_response(self, code, message=None): # begin_headers
         self.response_lines.append(f"{self.protocol_version} {code} {message}{self.terminator}")
         self.send_head()
         self.response_lines.append(self.terminator)
         # -> "".join(self.response_lines)
-        
+
     def send_head(self):
         pass
-        
+
     def send_header(self, keyword, value):
         self.response_lines.append(f"{keyword}: {value}{self.terminator}")
 
@@ -153,7 +159,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def date_time_string(self):
         year, month, day, hh, mm, ss, wd, y, z = time.gmtime(time.time())
         return f"{self.weekdayname[wd]}, {day} {self.monthname[month]} {year} {hh}:{mm}:{ss} GMT"
-    
+
     def translate_path(self, path):
         if path.startswith("."):
             path = "/" + path
@@ -173,7 +179,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def do_HEAD(self):
         pass
-        
+
     def do_POST(self):
         pass
 
@@ -188,7 +194,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 def parse_args():
     parser = argparse.ArgumentParser("Simple asynchronous web-server")
     parser.add_argument("--host", dest="host", default="127.0.0.1")
-    parser.add_argument("--port", dest="port", type=int, default=9000)
+    parser.add_argument("--port", dest="port", type=int, default=9001)
     parser.add_argument("--log", dest="loglevel", default="info")
     parser.add_argument("--logfile", dest="logfile", default=None)
     parser.add_argument("-w", dest="nworkers", type=int, default=1)
@@ -196,7 +202,7 @@ def parse_args():
     return parser.parse_args()
 
 def run():
-    server = AsyncServer(host=args.host, port=args.port)
+    server = AsyncHTTPServer(host=args.host, port=args.port)
     server.serve_forever()
 
 if __name__ == "__main__":
