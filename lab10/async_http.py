@@ -8,6 +8,7 @@ import os
 import urllib
 import argparse
 import time
+import re
 
 # _get_data()
 
@@ -62,7 +63,6 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def __init__(self, sock):
         super().__init__(sock)
-        self.terminator = "\r\n"
         self.set_terminator(b"\r\n\r\n")
         self.headers = {} # incoming
         self.protocol_version = '1.1'
@@ -71,59 +71,70 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
         self._collect_incoming_data(data)
-        print(data)
+
+    def parse_request(self):
+        self.wrong_headers = False
+        self.parse_headers()
+        if self.wrong_headers:
+            respond_with_error(400)
+
+    def parse_headers(self):
+        def list2dict(headers):
+            result = {}
+            for header in headers:
+                key = header.split(':')[0].lower()
+                value = header[len(key) + 2:] # Host + : + ' ' = len() + 2
+                result[key] = value
+            return result
+
+        raw = self._get_data().decode()
+
+        # parsing method
+        self.method = re.findall('^[A-Z]+', raw)[0]
+        if not hasattr(self, 'do_' + self.method): # move to separate method
+            self.wrong_headers = True
+            return
+
+        # parsing protocol version
+        self.protocol_version = re.findall('\/(1.1|1.0|0.9)\\r\\n', raw)[0].strip().replace('/', '')
+        logging.debug(f"protocol: {self.protocol_version}")
+
+        # parsing request uri
+        expression = f'^{self.method}(.*?)HTTP/{self.protocol_version}'
+        uri = re.findall(expression, raw)[0]
+        self.uri = uri[1:-1] # removing spaces from both sides
+        logging.debug(f"uri: '{self.uri}'")
+
+        if self.method == 'GET':
+            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*'
+            self.headers = list2dict(raw.split("\r\n")[1:])
+
+            # extracting query string
+            if '?' in self.uri:
+                temp = self.uri
+                self.uri = re.findall('^(.*?)\?', temp)[0]
+                self.query_string = temp[len(self.uri) + 1:] # 'http://mail.ru/get?a=b' <- len(uri) + 1 (?)
+                logging.debug(f"uri: '{self.uri}', query_string: '{self.query_string}'")
+
+        elif self.method == 'POST':
+            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
+            head = raw.split("\r\n" * 2)[:1][0]
+            self.headers = list2dict(head.split("\r\n")[1:])
+        else:
+            self.respond_with_error(405)
 
     def found_terminator(self):
-        self.headers_parsed = False
         self.parse_request()
 
     def handle_request(self):
         method_name = 'do_' + self.method
         if not hasattr(self, method_name):
-            self.send_error(405)
+            self.respond_with_error(405)
             return
         handler = getattr(self, method_name)
         handler()
 
-    def parse_request(self):
-        self.headers_parsing_failed = False
-        if not self.headers_parsed:
-            self.parse_headers()
-            if self.headers_parsing_failed:
-                self.send_error(400)
-            if self.method == 'POST':
-                length = self.headers['content-length']
-                if length.isnumeric():
-                    if int(length) > 0:
-                        self.handle_read()
-                        return
-                self.handle_request()
-        else:
-            # получить тело ???
-            self.handle_request()
-
-    def list2dict(headers):
-        result = {}
-        for header in headers:
-            key = header.split(':')[0].lower()
-            value = header[len(key) + 2:] # Host + : + ' ' = len() + 2
-            result[key] = value
-        return result
-
-    def parse_headers(self):
-        raw = self._get_data()
-        self.method = None # REMOVE
-        if self.method == 'GET':
-            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*'
-            self.headers = self.list2dict(raw.split(self.terminator)[1:])
-        elif self.method == 'POST':
-            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
-            head = raw.split(self.terminator * 2)[:1][0]
-            self.headers = self.list2dict(head.split(self.terminator)[1:])
-        else:
-            self.send_error(405)
-
-    def send_error(self, code, message=None):
+    def respond_with_error(self, code, message=None):
         try:
             long_msg = self.responses[code]
         except KeyError:
@@ -195,7 +206,7 @@ def parse_args():
     parser = argparse.ArgumentParser("Simple asynchronous web-server")
     parser.add_argument("--host", dest="host", default="127.0.0.1")
     parser.add_argument("--port", dest="port", type=int, default=9001)
-    parser.add_argument("--log", dest="loglevel", default="info")
+    parser.add_argument("--log", dest="loglevel", default="debug")
     parser.add_argument("--logfile", dest="logfile", default=None)
     parser.add_argument("-w", dest="nworkers", type=int, default=1)
     parser.add_argument("-r", dest="document_root", default=".")
