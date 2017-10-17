@@ -63,6 +63,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def __init__(self, sock):
         super().__init__(sock)
+        self.term = "\r\n"
         self.set_terminator(b"\r\n\r\n")
         self.headers = {} # incoming
         self.protocol_version = '1.1'
@@ -76,9 +77,19 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.wrong_headers = False
         self.parse_headers()
         if self.wrong_headers:
-            respond_with_error(400)
+            self.respond_with_error(400)
+        if self.method == 'POST':
+            if int(self.headers['content-length']) > 0:
+                # дочитать
+                pass
+            else:
+                self.handle_request()
+        else:
+            self.handle_request()
+
 
     def parse_headers(self):
+        logging.debug('>>> parse_headers <<<')
         def list2dict(headers):
             result = {}
             for header in headers:
@@ -91,6 +102,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         # parsing method
         self.method = re.findall('^[A-Z]+', raw)[0]
+        logging.debug(f'Method: {self.method}')
         if not hasattr(self, 'do_' + self.method): # move to separate method
             self.wrong_headers = True
             return
@@ -101,13 +113,23 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         # parsing request uri
         expression = f'^{self.method}(.*?)HTTP/{self.protocol_version}'
-        uri = re.findall(expression, raw)[0]
+        matches = re.findall(expression, raw)
+        if len(matches) == 0:
+            self.wrong_headers = True
+            return
+        uri = matches[0]
         self.uri = uri[1:-1] # removing spaces from both sides
         logging.debug(f"uri: '{self.uri}'")
+
+        # parsing headers
 
         if self.method == 'GET':
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*'
             self.headers = list2dict(raw.split("\r\n")[1:])
+
+            if self.protocol_version == '1.1' and 'host' not in self.headers:
+                self.wrong_headers = True
+                return
 
             # extracting query string
             if '?' in self.uri:
@@ -120,6 +142,10 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
             head = raw.split("\r\n" * 2)[:1][0]
             self.headers = list2dict(head.split("\r\n")[1:])
+
+            if 'content-length' not in self.headers:
+                self.wrong_headers = True
+                return
         else:
             self.respond_with_error(405)
 
@@ -134,42 +160,58 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         handler = getattr(self, method_name)
         handler()
 
+    responses = {
+        200: ('OK', 'Request fulfilled, document follows'),
+        400: ('Bad Request', 'Bad request syntax or unsupported method'),
+        403: ('Forbidden', 'Request forbidden -- authorization will not help'),
+        404: ('Not Found', 'Nothing matches the given URI'),
+        405: ('Method Not Allowed', 'Specified method is invalid for this resource.')
+    }
+
     def respond_with_error(self, code, message=None):
+        logging.debug('>> respond_with_error <<<')
         try:
-            long_msg = self.responses[code]
+            short_msg, long_msg = self.responses[code]
         except KeyError:
-            long_msg = "Unexpected error"
+            short_msg, long_msg = "Shit happened", "Unexpected error"
         if message is None:
-            message = long_msg
+            message = short_msg
 
-        self.send_response(code, message)
-        self.send_header("Content-Type", "text/plain")
-        self.send_header("Connection", "close")
-        self.end_headers()
-
+        self.respond_with_code(code, message)
         self.handle_close()
 
-    def send_response(self, code, message=None): # begin_headers
-        self.response_lines.append(f"{self.protocol_version} {code} {message}{self.terminator}")
-        self.send_head()
-        self.response_lines.append(self.terminator)
-        # -> "".join(self.response_lines)
-
-    def send_head(self):
-        pass
-
     def send_header(self, keyword, value):
-        self.response_lines.append(f"{keyword}: {value}{self.terminator}")
+        self.response_lines.append(f"{keyword}: {value}")
 
     def end_headers(self):
-        self.response_lines.append(self.terminator)
+        self.response_lines.append('')
 
-    weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    monthname = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    def fill_response_headers(self):
+        server_headers = {
+            'Date': self.date_time_string()
+        }
+        for key, value in server_headers.items():
+            self.send_header(key, value)
+        self.end_headers()
+
+    def respond_with_code(self, code, message=None): # begin_headers
+        logging.debug(">>> respond_with_code <<<")
+        if message is None:
+            try:
+                message, _ = self.responses[code]
+            except KeyError:
+                message = 'Empty'
+        self.response_lines = [f"HTTP/{self.protocol_version} {code} {message}"]
+        self.fill_response_headers()
+        logging.debug(f"response_lines len: {len(self.response_lines)}")
+        print(self.term.join(self.response_lines))
+        self.handle_close()
 
     def date_time_string(self):
+        weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        monthname = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         year, month, day, hh, mm, ss, wd, y, z = time.gmtime(time.time())
-        return f"{self.weekdayname[wd]}, {day} {self.monthname[month]} {year} {hh}:{mm}:{ss} GMT"
+        return f"{weekdayname[wd]}, {day} {monthname[month]} {year} {hh}:{mm}:{ss} GMT"
 
     def translate_path(self, path):
         if path.startswith("."):
@@ -186,21 +228,13 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         return path
 
     def do_GET(self):
-        pass
+        self.respond_with_code(200)
 
     def do_HEAD(self):
         pass
 
     def do_POST(self):
         pass
-
-    responses = {
-        200: 'Request fulfilled, document follows',
-        400: 'Bad request syntax or unsupported method',
-        403: 'Request forbidden -- authorization will not help',
-        404: 'Nothing matches the given URI',
-        405: 'Specified method is invalid for this resource.'
-    }
 
 def parse_args():
     parser = argparse.ArgumentParser("Simple asynchronous web-server")
