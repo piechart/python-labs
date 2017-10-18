@@ -252,6 +252,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 path = path.replace("/..", "", 1)
         path = path.replace("/./", "/")
         path = path.replace("/.", "")
+
+        if path == '/':
+            path = '/index.html'
         return path
 
     def do_GET(self):
