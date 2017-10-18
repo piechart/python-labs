@@ -12,21 +12,6 @@ import re
 
 # _get_data()
 
-def url_normalize(path):
-    if path.startswith("."):
-        path = "/" + path
-    while "../" in path:
-        p1 = path.find("/..")
-        p2 = path.rfind("/", 0, p1)
-        if p2 != -1:
-            path = path[:p2] + path[p1+3:]
-        else:
-            path = path.replace("/..", "", 1)
-    path = path.replace("/./", "/")
-    path = path.replace("/.", "")
-    return path
-
-
 class FileProducer(object):
 
     def __init__(self, file, chunk_size=4096):
@@ -70,6 +55,10 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.protocol_version = '1.1'
         self.response_lines = []
         self.headers_parsed = False
+        self.server_headers = {
+            'Date': self.date_time_string(),
+            'Host': self.server_host
+        }
 
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
@@ -201,13 +190,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             message = short_msg
 
         self.respond_with_code(code, message)
-
+    
     def fill_response_headers(self):
-        server_headers = {
-            'Date': self.date_time_string(),
-            'Host': self.server_host
-        }
-        for key, value in server_headers.items():
+        for key, value in self.server_headers.items():
             self.send_header(key, value)
         self.end_headers()
 
@@ -268,10 +253,16 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def do_GET(self):
         # find document by uri
         if os.path.exists(self.uri):
-            data = None
-            with open(self.uri) as f:
-                data = f.read()
-            self.respond_with_code(200, None, data)
+            extension = self.uri.split(".")[-1:][0]
+            if extension in ('html', 'txt'):
+                extension = extension.replace('txt', 'plain')
+                self.server_headers['Content-Type'] = f'text/{extension}'
+                data = None
+                with open(self.uri) as f:
+                    data = f.read()
+                self.respond_with_code(200, None, data)
+            else:
+                self.respond_with_code(403)
         else:
             self.respond_with_code(404)
 
