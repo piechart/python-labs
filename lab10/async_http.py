@@ -244,9 +244,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         path = path.replace("/./", "/")
         path = path.replace("/.", "")
 
-        if path == '/':
-            path = '/index.html'
-        if path[:1] == '/':
+        if path.endswith('/'):
+            path += '/index.html'
+        if path.startswith('/'): # removing / from beginning
             path = path[1:]
         return path
 
