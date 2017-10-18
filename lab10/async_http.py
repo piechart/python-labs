@@ -258,13 +258,15 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         if path == '/':
             path = '/index.html'
+        if path[:1] == '/':
+            path = path[1:]
         return path
 
     def do_GET(self):
         # find document by uri
-        if os.path.exists(uri):
+        if os.path.exists(self.uri):
             data = None
-            with open(uri) as f:
+            with open(self.uri) as f:
                 data = f.read()
             self.respond_with_code(200, None, data)
         else:
