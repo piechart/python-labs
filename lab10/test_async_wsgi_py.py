@@ -4,8 +4,8 @@ import socket
 
 
 class TestAsyncHTTPServer(unittest.TestCase):
-    host = "http://localhost"
-    port = 9000
+    host = "http://127.0.0.1"
+    port = 9001
 
     def setUp(self):
         pass

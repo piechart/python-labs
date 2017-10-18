@@ -56,6 +56,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.response_lines = []
         self.headers_parsed = False
         self.server_headers = {
+            'Server': 'MegaProServer',
             'Date': self.date_time_string(),
             'Host': self.server_host
         }
@@ -238,13 +239,13 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             p1 = path.find("/..")
             p2 = path.find("/", 0, p1)
             if p2 != -1:
-                path = path[:p2] + path[p1+3:]
+                path = path[:p2] + path[p1 + 3:]
             else:
                 path = path.replace("/..", "", 1)
         path = path.replace("/./", "/")
         path = path.replace("/.", "")
 
-        if path.endswith('/'):
+        if path.endswith('/') and not 'index.html' in path:
             path += '/index.html'
         if path.startswith('/'): # removing / from beginning
             path = path[1:]
@@ -261,7 +262,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 with open(self.uri) as f:
                     data = f.read()
                     if extension == 'html':
-                        self.fetch_file_dependencies(data)
+                        self.fetch_file_dependencies(data) # <<<<< ------ ?????
                 self.respond_with_code(200, None, data)
             else:
                 self.respond_with_code(403)
