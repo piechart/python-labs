@@ -264,8 +264,6 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 data = None
                 with open(self.uri) as f:
                     data = f.read()
-                    # if extension == 'html':
-                    #     self.fetch_file_dependencies(data) # <<<<< ------ ?????
                 self.respond_with_code(200, None, data)
             else:
                 self.respond_with_error(403)
@@ -289,13 +287,6 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         first_part = 'text' if extension in text_extensions else 'image'
         extension = self.convert_extension_to_content_type_ending(extension)
         return f"{first_part}/{extension}"
-            
-    # def fetch_file_dependencies(self, html_raw):
-    #     expressions = ('src="(.*?)\.js"', 'href="(.*?)\.css"')
-    #     urls = []
-    #     for expr in expressions:
-    #         urls += re.findall(expr, html_raw)
-    #     # ????
 
     def do_HEAD(self):
         pass
