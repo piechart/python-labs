@@ -259,8 +259,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         # find document by uri
         if os.path.exists(self.uri):
             extension = self.uri.split(".")[-1:][0]
-            if extension in ('html', 'txt'):
-                extension = extension.replace('txt', 'plain')
+            if extension in ('html', 'txt', 'css', 'js'):
+                extension = self.convert_extension_to_content_type_ending(extension)
                 self.server_headers['Content-Type'] = f'text/{extension}'
                 data = None
                 with open(self.uri) as f:
@@ -269,9 +269,18 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                         self.fetch_file_dependencies(data) # <<<<< ------ ?????
                 self.respond_with_code(200, None, data)
             else:
-                self.respond_with_code(403)
+                self.respond_with_error(403)
         else:
-            self.respond_with_code(404)
+            self.respond_with_error(404)
+    
+    def convert_extension_to_content_type_ending(self, s):
+        replacements = {
+            'txt': 'plain',
+            'js': 'javascript'
+        }
+        for key, value in replacements.items():
+            s = s.replace(key, value)
+        return s
             
     def fetch_file_dependencies(self, html_raw):
         expressions = ('src="(.*?)\.js"', 'href="(.*?)\.css"')
@@ -284,6 +293,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         pass
 
     def do_POST(self):
+        if self.uri.endswith('.html'):
+            self.respond_with_error(400)
         self.respond_with_code(200)
 
 def parse_args():
