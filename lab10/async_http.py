@@ -9,6 +9,7 @@ import urllib
 import argparse
 import time
 import re
+from urllib import parse
 
 # _get_data()
 
@@ -124,6 +125,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         uri = matches[0]
         self.uri = uri[1:-1] # removing spaces from both sides
         self.uri = self.translate_path(self.uri)
+        self.uri = parse.unquote(self.uri) # URLDecode
         logging.debug(f"uri: '{self.uri}'")
 
         # parsing headers
