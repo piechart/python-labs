@@ -259,14 +259,13 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         # find document by uri
         if os.path.exists(self.uri):
             extension = self.uri.split(".")[-1:][0]
-            if extension in ('html', 'txt', 'css', 'js'):
-                extension = self.convert_extension_to_content_type_ending(extension)
-                self.server_headers['Content-Type'] = f'text/{extension}'
+            if extension in (text_extensions + images_extensions):
+                self.server_headers['Content-Type'] = self.make_content_type_header(extension)
                 data = None
                 with open(self.uri) as f:
                     data = f.read()
-                    if extension == 'html':
-                        self.fetch_file_dependencies(data) # <<<<< ------ ?????
+                    # if extension == 'html':
+                    #     self.fetch_file_dependencies(data) # <<<<< ------ ?????
                 self.respond_with_code(200, None, data)
             else:
                 self.respond_with_error(403)
@@ -276,18 +275,27 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def convert_extension_to_content_type_ending(self, s):
         replacements = {
             'txt': 'plain',
-            'js': 'javascript'
+            'js': 'javascript',
+            'jpg': 'jpeg'
         }
         for key, value in replacements.items():
             s = s.replace(key, value)
         return s
+        
+    text_extensions = ('html', 'txt', 'css', 'js')
+    images_extensions = ('jpg', 'jpeg', 'png', 'gif')
+    
+    def make_content_type_header(self, extension):
+        first_part = 'text' if extension in text_extensions else 'image'
+        extension = self.convert_extension_to_content_type_ending(extension)
+        return f"{first_part}/{extension}"
             
-    def fetch_file_dependencies(self, html_raw):
-        expressions = ('src="(.*?)\.js"', 'href="(.*?)\.css"')
-        urls = []
-        for expr in expressions:
-            urls += re.findall(expr, html_raw)
-        # ????
+    # def fetch_file_dependencies(self, html_raw):
+    #     expressions = ('src="(.*?)\.js"', 'href="(.*?)\.css"')
+    #     urls = []
+    #     for expr in expressions:
+    #         urls += re.findall(expr, html_raw)
+    #     # ????
 
     def do_HEAD(self):
         pass
