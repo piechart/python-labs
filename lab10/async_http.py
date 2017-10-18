@@ -69,13 +69,14 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.headers = {} # incoming
         self.protocol_version = '1.1'
         self.response_lines = []
+        self.headers_parsed = False
 
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
         self._collect_incoming_data(data)
-        self.headers_parsed = False
 
     def parse_request(self):
+        logging.debug(f"parse_request: self.headers_parsed == {self.headers_parsed}")
         if not self.headers_parsed:
             self.wrong_headers = False
             self.parse_headers()
@@ -85,8 +86,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             if self.method == 'POST':
                 content_length = int(self.headers['content-length'])
                 if content_length > 0:
+                    logging.debug(f"Need to fetch {content_length} more bytes")
                     self.set_terminator(content_length)
-                    # дочитать
                     pass
                 else:
                     self.handle_request()
