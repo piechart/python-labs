@@ -229,9 +229,11 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         if self.method == 'POST':
             self.response_lines.append(self.body)
+            self.response_lines.append('') # translates into \r\n\r\n on `join`
         else:
             if content is not None: # requested uri
                 self.response_lines.append(content)
+                self.response_lines.append('')
 
         logging.debug(f"response_lines len: {len(self.response_lines)}")
         server_raw_response = self.term.join(self.response_lines)
