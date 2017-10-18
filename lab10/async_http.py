@@ -236,7 +236,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             path = "/" + path
         while "../" in path:
             p1 = path.find("/..")
-            p2 = path.rfind("/", 0, p1)
+            p2 = path.find("/", 0, p1)
             if p2 != -1:
                 path = path[:p2] + path[p1+3:]
             else:
@@ -260,11 +260,20 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 data = None
                 with open(self.uri) as f:
                     data = f.read()
+                    if extension == 'html':
+                        self.fetch_file_dependencies(data)
                 self.respond_with_code(200, None, data)
             else:
                 self.respond_with_code(403)
         else:
             self.respond_with_code(404)
+            
+    def fetch_file_dependencies(self, html_raw):
+        expressions = ('src="(.*?)\.js"', 'href="(.*?)\.css"')
+        urls = []
+        for expr in expressions:
+            urls += re.findall(expr, html_raw)
+        
 
     def do_HEAD(self):
         pass
