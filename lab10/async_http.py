@@ -64,6 +64,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def __init__(self, sock):
         super().__init__(sock)
         self.term = "\r\n"
+        self.server_host = '127.0.0.1'
         self.set_terminator(b"\r\n\r\n")
         self.headers = {} # incoming
         self.protocol_version = '1.1'
@@ -72,19 +73,27 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def collect_incoming_data(self, data):
         log.debug(f"Incoming data: {data}")
         self._collect_incoming_data(data)
+        self.headers_parsed = False
 
     def parse_request(self):
-        self.wrong_headers = False
-        self.parse_headers()
-        if self.wrong_headers:
-            self.respond_with_error(400)
-        if self.method == 'POST':
-            if int(self.headers['content-length']) > 0:
-                # дочитать
-                pass
+        if not self.headers_parsed:
+            self.wrong_headers = False
+            self.parse_headers()
+            if self.wrong_headers:
+                self.respond_with_error(400)
+                return
+            if self.method == 'POST':
+                content_length = int(self.headers['content-length'])
+                if content_length > 0:
+                    self.set_terminator(content_length)
+                    # дочитать
+                    pass
+                else:
+                    self.handle_request()
             else:
                 self.handle_request()
         else:
+            self.parse_body()
             self.handle_request()
 
 
@@ -108,7 +117,11 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             return
 
         # parsing protocol version
-        self.protocol_version = re.findall('\/(1.1|1.0|0.9)\\r\\n', raw)[0].strip().replace('/', '')
+        matches = re.findall('\/(1.1|1.0|0.9)\\r\\n', raw)
+        if len(matches) == 0:
+            self.wrong_headers = True
+            return
+        self.protocol_version = matches[0].strip().replace('/', '')
         logging.debug(f"protocol: {self.protocol_version}")
 
         # parsing request uri
@@ -132,6 +145,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 self.wrong_headers = True
                 return
 
+            self.headers_parsed = True
+
             # extracting query string
             if '?' in self.uri:
                 temp = self.uri
@@ -140,17 +155,21 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 logging.debug(f"uri: '{self.uri}', query_string: '{self.query_string}'")
 
         elif self.method == 'POST':
-            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy'
+            # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy\r\n\r\n'
             head = raw.split("\r\n" * 2)[:1][0]
             self.headers = list2dict(head.split("\r\n")[1:])
-
-            self.body = raw.split("\r\n" * 2)[-1:][0]
 
             if 'content-length' not in self.headers:
                 self.wrong_headers = True
                 return
+
+            self.headers_parsed = True
         else:
             self.respond_with_error(405)
+
+    def parse_body(self):
+        logging.debug(">>> parse_body <<<")
+        self.body = self._get_data().decode()
 
     def found_terminator(self):
         self.parse_request()
@@ -181,11 +200,11 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             message = short_msg
 
         self.respond_with_code(code, message)
-        self.handle_close()
 
     def fill_response_headers(self):
         server_headers = {
-            'Date': self.date_time_string()
+            'Date': self.date_time_string(),
+            'Host': self.server_host
         }
         for key, value in server_headers.items():
             self.send_header(key, value)
@@ -211,7 +230,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             self.response_lines.append(self.body)
 
         logging.debug(f"response_lines len: {len(self.response_lines)}")
-        print(self.term.join(self.response_lines))
+        server_raw_response = self.term.join(self.response_lines)
+        print(server_raw_response)
         self.handle_close()
 
     def date_time_string(self):
@@ -242,7 +262,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         pass
 
     def do_POST(self):
-        pass
+        self.respond_with_code(200)
 
 def parse_args():
     parser = argparse.ArgumentParser("Simple asynchronous web-server")
