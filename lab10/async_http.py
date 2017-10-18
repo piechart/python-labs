@@ -216,7 +216,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def end_headers(self):
         self.response_lines.append('')
 
-    def respond_with_code(self, code, message=None): # begin_headers
+    def respond_with_code(self, code, message=None, content=None): # begin_headers
         logging.debug(">>> respond_with_code <<<")
         if message is None:
             try:
@@ -228,6 +228,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         if self.method == 'POST':
             self.response_lines.append(self.body)
+        else:
+            if content is not None: # requested uri
+                self.response_lines.append(content)
 
         logging.debug(f"response_lines len: {len(self.response_lines)}")
         server_raw_response = self.term.join(self.response_lines)
@@ -259,7 +262,13 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def do_GET(self):
         # find document by uri
-        self.respond_with_code(200)
+        if os.path.exists(uri):
+            data = None
+            with open(uri) as f:
+                data = f.read()
+            self.respond_with_code(200, None, data)
+        else:
+            self.respond_with_code(404)
 
     def do_HEAD(self):
         pass
