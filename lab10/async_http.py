@@ -214,10 +214,12 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.fill_response_headers()
 
         if self.method == 'POST':
+            self.server_headers['Content-Length'] = len(self.body)
             self.response_lines.append(self.body)
             self.response_lines.append('') # translates into \r\n\r\n on `join`
         else:
             if content is not None: # requested uri
+                self.server_headers['Content-Length'] = len(content)
                 self.response_lines.append(content)
                 self.response_lines.append('')
 
