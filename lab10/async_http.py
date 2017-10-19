@@ -79,8 +79,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 if content_length > 0:
                     logging.debug(f"Need to fetch {content_length} more bytes")
                     self.set_terminator(content_length)
-                    pass
                 else:
+                    self.body = ''
                     self.handle_request()
             else:
                 self.handle_request()
@@ -124,8 +124,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             return
         uri = matches[0]
         self.uri = uri[1:-1] # removing spaces from both sides
-        self.uri = self.translate_path(self.uri)
         self.uri = parse.unquote(self.uri) # URLDecode
+        self.uri = self.translate_path(self.uri)
         logging.debug(f"uri: '{self.uri}'")
 
         # parsing headers
@@ -193,7 +193,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             message = short_msg
 
         self.respond_with_code(code, message)
-    
+
     def fill_response_headers(self):
         for key, value in self.server_headers.items():
             self.send_header(key, value)
@@ -205,8 +205,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def end_headers(self):
         self.response_lines.append('')
 
-    def respond_with_code(self, code, message=None, content=None): # begin_headers
-        logging.debug(">>> respond_with_code <<<")
+    def respond_with_code(self, code, message=None, content=''): # begin_headers
+        logging.debug(f">>> respond_with_code: {code} <<<")
         if message is None:
             try:
                 message, _ = self.responses[code]
@@ -220,14 +220,12 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             self.response_lines.append(self.body)
             self.response_lines.append('') # translates into \r\n\r\n on `join`
         else:
-            if content is not None: # requested uri
-                self.server_headers['Content-Length'] = len(content)
+            self.server_headers['Content-Length'] = len(content)
+            if len(content) > 0: # requested uri
                 self.response_lines.append(content)
-                self.response_lines.append('')
 
-        logging.debug(f"response_lines len: {len(self.response_lines)}")
         server_raw_response = self.term.join(self.response_lines)
-        print(server_raw_response)
+        self.push(bytes(server_raw_response, 'utf-8'))
         self.handle_close()
 
     def date_time_string(self):
@@ -250,26 +248,31 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         path = path.replace("/.", "")
 
         if path.endswith('/') and not 'index.html' in path:
-            path += '/index.html'
+            path += 'index.html'
         if path.startswith('/'): # removing / from beginning
             path = path[1:]
         return path
 
-    def do_GET(self):
+    text_extensions = ('html', 'txt', 'css', 'js')
+    images_extensions = ('jpg', 'jpeg', 'png', 'gif')
+
+    def do_GET(self, without_content=False):
         # find document by uri
+        logging.debug(f"do_GET: uri == '{self.uri}'")
         if os.path.exists(self.uri):
             extension = self.uri.split(".")[-1:][0]
-            if extension in (text_extensions + images_extensions):
+            if extension in (self.text_extensions + self.images_extensions):
                 self.server_headers['Content-Type'] = self.make_content_type_header(extension)
-                data = None
-                with open(self.uri) as f:
-                    data = f.read()
+                data = ''
+                if not without_content:
+                    with open(self.uri) as f:
+                        data = f.read()
                 self.respond_with_code(200, None, data)
             else:
                 self.respond_with_error(403)
         else:
             self.respond_with_error(404)
-    
+
     def convert_extension_to_content_type_ending(self, s):
         replacements = {
             'txt': 'plain',
@@ -279,22 +282,21 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         for key, value in replacements.items():
             s = s.replace(key, value)
         return s
-        
-    text_extensions = ('html', 'txt', 'css', 'js')
-    images_extensions = ('jpg', 'jpeg', 'png', 'gif')
-    
+
     def make_content_type_header(self, extension):
-        first_part = 'text' if extension in text_extensions else 'image'
+        first_part = 'text' if extension in self.text_extensions else 'image'
         extension = self.convert_extension_to_content_type_ending(extension)
         return f"{first_part}/{extension}"
 
     def do_HEAD(self):
-        pass
+        self.do_GET(without_content=True)
 
     def do_POST(self):
         if self.uri.endswith('.html'):
+            logging.debug("do_POST: Sending error 400 because of self.uri.endswith('.html')")
             self.respond_with_error(400)
-        self.respond_with_code(200)
+        else:
+            self.respond_with_code(200)
 
 def parse_args():
     parser = argparse.ArgumentParser("Simple asynchronous web-server")
