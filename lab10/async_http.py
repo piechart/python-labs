@@ -42,7 +42,7 @@ class AsyncHTTPServer(asyncore.dispatcher):
     def handle_accepted(self, sock, addr):
         log.debug(f"Incoming connection from {addr}")
         AsyncHTTPRequestHandler(sock)
-        
+
 def conv(s):
     return bytes(str(s), 'utf-8')
 
@@ -69,9 +69,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def parse_request(self):
         logging.debug(f"parse_request: self.headers_parsed == {self.headers_parsed}")
         if not self.headers_parsed:
-            self.wrong_headers = False
-            self.parse_headers()
-            if self.wrong_headers:
+            if not self.parse_headers():
                 self.respond_with_code(400)
                 return
             if self.method == 'POST':
@@ -105,14 +103,12 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.method = re.findall('^[A-Z]+', raw)[0]
         logging.debug(f'Method: {self.method}')
         if not hasattr(self, 'do_' + self.method): # move to separate method
-            self.wrong_headers = True
-            return
+            return False
 
         # parsing protocol version
         matches = re.findall('\/(1.1|1.0|0.9)\\r\\n', raw)
         if len(matches) == 0:
-            self.wrong_headers = True
-            return
+            return False
         self.protocol_version = matches[0].strip().replace('/', '')
         logging.debug(f"protocol: {self.protocol_version}")
 
@@ -120,8 +116,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         expression = f'^{self.method}(.*?)HTTP/{self.protocol_version}'
         matches = re.findall(expression, raw)
         if len(matches) == 0:
-            self.wrong_headers = True
-            return
+            return False
         uri = matches[0]
         self.uri = uri[1:-1] # removing spaces from both sides
         self.uri = parse.unquote(self.uri) # URLDecode
@@ -132,13 +127,10 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         if self.method in ('GET', 'HEAD'):
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*'
-            self.headers = list2dict(raw.split("\r\n")[1:])
+            self.headers = list2dict(raw.split(self.term)[1:])
 
             if self.protocol_version == '1.1' and 'host' not in self.headers:
-                self.wrong_headers = True
-                return
-
-            self.headers_parsed = True
+                return False
 
             # extracting query string
             if '?' in self.uri:
@@ -147,18 +139,20 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 self.query_string = temp[len(self.uri) + 1:] # 'http://mail.ru/get?a=b' <- len(uri) + 1 (?)
                 logging.debug(f"uri: '{self.uri}', query_string: '{self.query_string}'")
 
+            return True
+
         elif self.method == 'POST':
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy\r\n\r\n'
-            head = raw.split("\r\n" * 2)[:1][0]
-            self.headers = list2dict(head.split("\r\n")[1:])
+            head = raw.split(self.term * 2)[:1][0]
+            self.headers = list2dict(head.split(self.term)[1:])
 
             if 'content-length' not in self.headers:
-                self.wrong_headers = True
-                return
+                return False
 
-            self.headers_parsed = True
+            return True
         else:
             self.respond_with_code(405)
+            return False
 
     def parse_body(self):
         logging.debug(">>> parse_body <<<")
@@ -198,20 +192,20 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def add_terminator(self):
         self.push(conv(self.term))
-    
+
     def respond_with_code(self, code, content=''): # begin_headers
         logging.debug(f">>> respond_with_code: {code} <<<")
         try:
             message, _ = self.responses[code]
         except KeyError:
             message = 'Hell'
-            
+
         self.begin_response(code, message)
         self.send_response(content)
         self.add_terminator()
         self.add_terminator()
         self.handle_close()
-        
+
     def send_response(self, content):
         if self.method == 'POST':
             self.push(conv(self.body))
@@ -220,8 +214,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 self.push(conv(content))
 
     def date_time_string(self):
-        weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        monthname = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        weekdayname = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
+        monthname = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
         year, month, day, hh, mm, ss, wd, y, z = time.gmtime(time.time())
         return f"{weekdayname[wd]}, {day} {monthname[month]} {year} {hh}:{mm}:{ss} GMT"
 
@@ -250,23 +244,28 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def do_GET(self, without_content=False):
         # find document by uri
         logging.debug(f"do_GET: uri == '{self.uri}'")
-        
-        is_file = '.' in self.uri[-5:]
-        
+
+        valid_extensions = self.text_extensions + self.images_extensions
+        max_extension_length = len(max(valid_extensions, key=len)) + 1 # 1 is for dot
+
+        is_file = '.' in self.uri[-max_extension_length:]
+
         if not is_file: # wtf??
             self.respond_with_code(403)
             return
-        
+
         if os.path.exists(self.uri):
             extension = self.uri.split(".")[-1:][0]
-            if extension in (self.text_extensions + self.images_extensions):
-                self.server_headers['content-Type'] = self.make_content_type_header(extension)
+            if extension in valid_extensions:
+                self.server_headers['content-type'] = self.make_content_type_header(extension)
+
                 reading_mode = 'r' if extension in self.text_extensions else 'rb'
                 with open(self.uri, reading_mode) as f:
                     data = f.read()
                     self.server_headers['content-length'] = len(data)
                 if without_content: # called from do_HEAD
                     data = ''
+
                 self.respond_with_code(200, data)
             else:
                 self.respond_with_code(415)
@@ -288,7 +287,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.do_GET(without_content=True)
 
     def do_POST(self):
-        if self.uri.endswith('.html'):
+        if self.uri.endswith('.html'): # naive
             logging.debug("do_POST: Sending error 400 because of self.uri.endswith('.html')")
             self.respond_with_code(400)
         else:
