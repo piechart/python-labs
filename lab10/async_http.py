@@ -46,7 +46,7 @@ class AsyncHTTPServer(asyncore.dispatcher):
         AsyncHTTPRequestHandler(sock)
         
 def conv(s):
-    print(repr(s))
+    # print(repr(s))
     return bytes(s, 'utf-8')
 
 class AsyncHTTPRequestHandler(asynchat.async_chat):
@@ -192,7 +192,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.push(conv(f"HTTP/{self.protocol_version} {code} {message}"))
         self.add_terminator()
         for key, value in self.server_headers.items():
-            self.send_header(key, value)
+            self.send_header(key.title(), value)
         self.add_terminator()
 
     def send_header(self, keyword, value):
@@ -255,10 +255,10 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         if os.path.exists(self.uri):
             extension = self.uri.split(".")[-1:][0]
             if extension in (self.text_extensions + self.images_extensions):
-                self.server_headers['Content-Type'] = self.make_content_type_header(extension)
+                self.server_headers['content-Type'] = self.make_content_type_header(extension)
                 with open(self.uri) as f:
                     data = f.read()
-                    self.server_headers['content_length'] = len(data)
+                    self.server_headers['content-length'] = len(data)
                 if without_content:
                     data = ''
                 self.respond_with_code(200, data)
@@ -290,7 +290,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             logging.debug("do_POST: Sending error 400 because of self.uri.endswith('.html')")
             self.respond_with_code(400)
         else:
-            self.server_headers['Content-Length'] = len(self.body)
+            self.server_headers['content-Length'] = len(self.body)
             self.respond_with_code(200)
 
 def parse_args():
