@@ -11,8 +11,6 @@ import time
 import re
 from urllib import parse
 
-# _get_data()
-
 class FileProducer(object):
 
     def __init__(self, file, chunk_size=4096):
@@ -31,7 +29,7 @@ class FileProducer(object):
 
 class AsyncHTTPServer(asyncore.dispatcher):
 
-    def __init__(self, host="127.0.0.1", port=9000):
+    def __init__(self, host="127.0.0.1", port=9001):
         super().__init__()
         self.create_socket()
         self.set_reuse_addr()
@@ -58,8 +56,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.headers = {} # incoming
         self.protocol_version = '1.1'
         self.headers_parsed = False
-        self.server_headers = {
-            'Server': 'Titan',
+        self.server_headers = { # outgoing
+            'Server': 'piechart',
             'Date': self.date_time_string(),
             'Host': self.server_host
         }
@@ -242,7 +240,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         if path == '/':
             path += 'index.html'
-        if path.startswith('/'): # removing / from beginning
+        if path.startswith('/'): # removing slash from beginning
             path = path[1:]
         return path
 
@@ -252,9 +250,10 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def do_GET(self, without_content=False):
         # find document by uri
         logging.debug(f"do_GET: uri == '{self.uri}'")
+        
         is_file = '.' in self.uri[-5:]
         
-        if not is_file: # костыль
+        if not is_file: # wtf??
             self.respond_with_code(403)
             return
         
@@ -266,7 +265,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 with open(self.uri, reading_mode) as f:
                     data = f.read()
                     self.server_headers['content-length'] = len(data)
-                if without_content:
+                if without_content: # called from do_HEAD
                     data = ''
                 self.respond_with_code(200, data)
             else:
@@ -275,13 +274,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             self.respond_with_code(404)
 
     def convert_extension_to_content_type_ending(self, s):
-        replacements = {
-            'txt': 'plain',
-            'js': 'javascript',
-            'jpg': 'jpeg'
-        }
-        for key, value in replacements.items():
-            s = s.replace(key, value)
+        replacements = [('txt', 'plain'), ('js', 'javascript'), ('jpg', 'jpeg')]
+        for item in replacements:
+            s = s.replace(item[0], item[1])
         return s
 
     def make_content_type_header(self, extension):
