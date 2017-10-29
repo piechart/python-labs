@@ -319,6 +319,6 @@ if __name__ == "__main__":
     log = logging.getLogger(__name__)
 
     DOCUMENT_ROOT = args.document_root
-    # for _ in range(args.nworkers):
-    p = multiprocessing.Process(target=run)
-    p.start()
+    for _ in range(args.nworkers):
+        p = multiprocessing.Process(target=run)
+        p.start()
