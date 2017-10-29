@@ -42,7 +42,7 @@ class TestAsyncHTTPServer(unittest.TestCase):
     def test_index_not_found(self):
         """Directory index file absent"""
         r = requests.get(f'{self.host}:{self.port}/403/')
-        self.assertEqual(int(r.status_code), 403)
+        self.assertEqual(r.status_code, 403)
 
     def test_file_not_found(self):
         """Absent file returns 404"""

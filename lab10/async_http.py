@@ -46,8 +46,7 @@ class AsyncHTTPServer(asyncore.dispatcher):
         AsyncHTTPRequestHandler(sock)
         
 def conv(s):
-    # print(repr(s))
-    return bytes(s, 'utf-8')
+    return bytes(str(s), 'utf-8')
 
 class AsyncHTTPRequestHandler(asynchat.async_chat):
 
@@ -212,6 +211,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.begin_response(code, message)
         self.send_response(content)
         self.add_terminator()
+        self.add_terminator()
         self.handle_close()
         
     def send_response(self, content):
@@ -240,7 +240,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         path = path.replace("/./", "/")
         path = path.replace("/.", "")
 
-        if path.endswith('/') and not 'index.html' in path:
+        if path == '/':
             path += 'index.html'
         if path.startswith('/'): # removing / from beginning
             path = path[1:]
@@ -252,11 +252,18 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
     def do_GET(self, without_content=False):
         # find document by uri
         logging.debug(f"do_GET: uri == '{self.uri}'")
+        is_file = '.' in self.uri[-5:]
+        
+        if not is_file: # костыль
+            self.respond_with_code(403)
+            return
+        
         if os.path.exists(self.uri):
             extension = self.uri.split(".")[-1:][0]
             if extension in (self.text_extensions + self.images_extensions):
                 self.server_headers['content-Type'] = self.make_content_type_header(extension)
-                with open(self.uri) as f:
+                reading_mode = 'r' if extension in self.text_extensions else 'rb'
+                with open(self.uri, reading_mode) as f:
                     data = f.read()
                     self.server_headers['content-length'] = len(data)
                 if without_content:
@@ -290,7 +297,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             logging.debug("do_POST: Sending error 400 because of self.uri.endswith('.html')")
             self.respond_with_code(400)
         else:
-            self.server_headers['content-Length'] = len(self.body)
+            self.server_headers['content-length'] = len(self.body)
             self.respond_with_code(200)
 
 def parse_args():
