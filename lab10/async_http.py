@@ -57,9 +57,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         self.protocol_version = '1.1'
         self.headers_parsed = False
         self.server_headers = { # outgoing
+            'Host': self.server_host,
             'Server': 'piechart',
-            'Date': self.date_time_string(),
-            'Host': self.server_host
+            'Date': self.date_time_string()
         }
 
     def collect_incoming_data(self, data):
@@ -102,7 +102,8 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         # parsing method
         self.method = re.findall('^[A-Z]+', raw)[0]
         logging.debug(f'Method: {self.method}')
-        if not hasattr(self, 'do_' + self.method): # move to separate method
+        if not hasattr(self, 'do_' + self.method):
+            self.respond_with_code(405)
             return False
 
         # parsing protocol version
@@ -139,8 +140,6 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
                 self.query_string = temp[len(self.uri) + 1:] # 'http://mail.ru/get?a=b' <- len(uri) + 1 (?)
                 logging.debug(f"uri: '{self.uri}', query_string: '{self.query_string}'")
 
-            return True
-
         elif self.method == 'POST':
             # 'GET / HTTP/1.1\r\nHost: 127.0.0.1:9000\r\nUser-Agent: curl/7.49.1\r\nAccept: */*\r\n\r\nBodddyyyy\r\n\r\n'
             head = raw.split(self.term * 2)[:1][0]
@@ -149,10 +148,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
             if 'content-length' not in self.headers:
                 return False
 
-            return True
-        else:
-            self.respond_with_code(405)
-            return False
+        return True
 
     def parse_body(self):
         logging.debug(">>> parse_body <<<")
@@ -163,11 +159,9 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
     def handle_request(self):
         method_name = 'do_' + self.method
-        if not hasattr(self, method_name):
-            self.respond_with_code(405)
-            return
-        handler = getattr(self, method_name)
-        handler()
+        if hasattr(self, method_name):
+            handler = getattr(self, method_name)
+            handler()
 
     responses = {
         200: ('OK', 'Request fulfilled, document follows'),
