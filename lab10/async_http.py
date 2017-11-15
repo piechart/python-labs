@@ -181,8 +181,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
 
         self.begin_response(code, message)
         self.send_response(content)
-        self.add_terminator()
-        self.add_terminator()
+        self.end_response()
         self.handle_close()
 
     def send_response(self, content):
@@ -191,6 +190,10 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         else:
             if len(content) > 0: # requested uri
                 self.push(conv(content))
+                
+    def end_response(self):
+        self.add_terminator()
+        self.add_terminator()
 
     def date_time_string(self):
         weekdayname = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
