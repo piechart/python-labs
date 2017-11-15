@@ -11,26 +11,11 @@ import time
 import re
 from urllib import parse
 
-class FileProducer(object):
-
-    def __init__(self, file, chunk_size=4096):
-        self.file = file
-        self.chunk_size = chunk_size
-
-    def more(self):
-        if self.file:
-            data = self.file.read(self.chunk_size)
-            if data:
-                return data
-            self.file.close()
-            self.file = None
-        return ""
-
-
 class AsyncHTTPServer(asyncore.dispatcher):
 
-    def __init__(self, host="127.0.0.1", port=9001):
+    def __init__(self, host="127.0.0.1", port=9001, handler_class=None):
         super().__init__()
+        self.handler_class = handler_class
         self.create_socket()
         self.set_reuse_addr()
         self.bind((host, port))
@@ -40,8 +25,8 @@ class AsyncHTTPServer(asyncore.dispatcher):
         asyncore.loop()
 
     def handle_accepted(self, sock, addr):
-        log.debug(f"Incoming connection from {addr}")
-        AsyncHTTPRequestHandler(sock)
+        logging.debug(f"Incoming connection from {addr}")
+        self.handler_class(sock)
 
 def conv(s):
     return bytes(str(s), 'utf-8')
@@ -63,7 +48,7 @@ class AsyncHTTPRequestHandler(asynchat.async_chat):
         }
 
     def collect_incoming_data(self, data):
-        log.debug(f"Incoming data: {data}")
+        logging.debug(f"Incoming data: {data}")
         self._collect_incoming_data(data)
 
     def parse_request(self):
@@ -299,7 +284,7 @@ def parse_args():
     return parser.parse_args()
 
 def run():
-    server = AsyncHTTPServer(host=args.host, port=args.port)
+    server = AsyncHTTPServer(host=args.host, port=args.port, handler_class=AsyncHTTPRequestHandler)
     server.serve_forever()
 
 if __name__ == "__main__":
