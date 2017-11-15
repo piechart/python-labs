@@ -10,7 +10,6 @@ class AsyncWSGIServer(async_http.AsyncHTTPServer):
     def get_app(self):
         return self.application
 
-
 class AsyncWSGIRequestHandler(async_http.AsyncHTTPRequestHandler):
 
     def get_environ(self):
@@ -21,21 +20,19 @@ class AsyncWSGIRequestHandler(async_http.AsyncHTTPRequestHandler):
         environ['wsgi.multithread'] = False
         environ['wsgi.multiprocess'] = False
         environ['wsgi.run_once'] = True
-        
-        if self.query_string:
+
+        if hasattr(self, 'query_string'):
             environ['QUERY_STRING'] = self.query_string
         return environ
 
     def start_response(self, status, response_headers, exc_info=None):
         if exc_info:
-            raise AssertionError("shit happened")
+            raise AssertionError("exc_info is not None")
         for key, value in response_headers:
             self.server_headers[key] = value
         self.response_code, self.response_message = status.split(" ")[:2]
-        # IMPLEMENT
 
     def handle_request(self):
-        print(">>> handle_request")
         env = self.get_environ()
         app = server.get_app()
         result = app(env, self.start_response)
@@ -43,7 +40,6 @@ class AsyncWSGIRequestHandler(async_http.AsyncHTTPRequestHandler):
 
     def finish_response(self, result):
         self.begin_response(self.response_code, self.response_message)
-        print(f">>> result: {result}")
         for data in result:
             self.push(data)
         self.end_response()
