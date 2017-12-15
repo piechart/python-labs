@@ -1,4 +1,5 @@
 .DS_Store
 lab10/__pycache__
 lab9/src/config/__pycache__/
+lab9/src/config/settings/__pycache__/
 lab9/src/config/settings/settings.ini
