@@ -3,6 +3,9 @@ from decouple import config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = '/static/'
+
 SECRET_KEY = config('SECRET_KEY')
 
 DEBUG = True
@@ -19,7 +22,7 @@ INSTALLED_APPS = [
     'notes',
 ]
 
-MIDDLEWARE = [
+MIDDLEWARE_CLASSES = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
