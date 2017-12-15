@@ -1,9 +1,13 @@
 import os
 from decouple import config
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+def root(*dirs):
+    base_dir = os.path.join(os.path.dirname(__file__), '..', '..')
+    return os.path.abspath(os.path.join(base_dir, *dirs))
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+BASE_DIR = root()
+
+STATIC_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 STATIC_URL = '/static/'
 
 SECRET_KEY = config('SECRET_KEY')
@@ -37,7 +41,9 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            root('templates')
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
