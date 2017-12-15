@@ -6,7 +6,10 @@
       {{ field.errors }}
     {% endif %}
     {{ field }}
+    <br><br>
   {% endfor %}
   <input type="hidden" name="next" value="{{ next }}" />
   <input class="button small" type="submit" value="Submit"/>
+  <hr>
+  Don't have an account? <a href="/accounts/register">Sign up</a>
 </form>
