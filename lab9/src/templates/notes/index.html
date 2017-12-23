@@ -1,13 +1,18 @@
-<a href="/admin">Admin Panel</a>
-<hr>
-<a href="{% url 'notes:create' %}">Create a new note</a>
-<hr>
+{% extends "base.html" %}
+
+{% block content %}
+
 {% if latest_note_list %}
-   <ul>
-   {% for note in latest_note_list %}
-     <li><a href="{% url 'notes:detail' note.id %}">{{ note.title }}</a> (<a href="{% url 'notes:update' note.id %}">Edit</a>)</li>
-   {% endfor %}
-   </ul>
+<div style="margin-left: 30px; font-size: 115%">
+  <h4 style="color: black">Notes</h4><br>
+  {% for note in latest_note_list %}
+  <li>
+    <a href="{% url 'notes:detail' note.id %}">{{ note.title }}</a>
+    <a href="{% url 'notes:update' note.id %}">(Edit)</a>
+    <hr>
+  </li>
+  {% endfor %}
+</div>
 {% else %}
   <p>No notes are available.</p>
 {% endif %}
@@ -29,3 +34,5 @@
   </span>
 </div>
 {% endif %}
+
+{% endblock %}

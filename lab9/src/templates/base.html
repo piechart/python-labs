@@ -3,10 +3,12 @@
 <html>
   <head>
     <title>Elevennote</title>
-    <link rel="stylesheet" media="all" href='{% static "bootstrap/css/bootstrap.css" %}'>
+    {% block head %}
+    <!-- <link rel="stylesheet" media="all" href='{% static "bootstrap/css/bootstrap.css" %}'> -->
+    <link rel="stylesheet" media="all" href='{% static "bootstrap/css/bootstrap.min.css" %}'>
     <link rel="stylesheet" media="all" href='{% static "elevennote/main.css" %}'>
-    <link rel="stylesheet" type="text/css" media="screen"
-          href="https://fonts.googleapis.com/css?family=Merriweather:400,300,300italic|Oxygen:400,300,700" />
+    <link rel="stylesheet" type="text/css" media="screen" href="https://fonts.googleapis.com/css?family=Merriweather:400,300,300italic|Oxygen:400,300,700" />
+    {% endblock %}
     <script src="{% static "elevennote/jquery.js" %}"></script>
     <script src="{% static "elevennote/main.js" %}"></script>
 
@@ -19,7 +21,7 @@
                 <header>
                     <div class="well">
                         <a href="/">
-                        ElevenNote
+                          ElevenNote
                         </a>
                         {% if user.is_authenticated %}
                             <div class="user-links">
