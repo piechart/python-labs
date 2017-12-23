@@ -23,8 +23,16 @@
               <ul id="notes">
 
                   {% for note in notes %}
-                    <li data-url="{% url 'notes:update' note.id %}">
-                        <div class="note-title">{{ note.title }}</div>
+                    <li data-url="{% url 'notes:update' note.id %}"
+                    {% if object and object.pk == note.pk %}
+                    style="color: white; background-color: #2dbe60;"
+                    {% endif %}
+                    >
+                        <div class="note-title"
+                        {% if object and object.pk == note.pk %}
+                        style="color: white"
+                        {% endif %}
+                        >{{ note.title }}</div>
                         <div class="note-body">{{ note.body | safe }}</div>
                     </li>
                   {% endfor %}
