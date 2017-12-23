@@ -10,28 +10,28 @@
 
 
     <div class="row">
-
+        {% if notes %}
         <div class="col-xs-4">
             <nav id="sidebar">
 
+              {% if notes %}
               <div class="new-note">
                 <a href="{% url 'notes:create' %}" class="new-note btn btn-default">+ New Note</a>
               </div>
+              {% endif %}
 
               <ul id="notes">
-              {% if notes %}
+
                   {% for note in notes %}
                     <li data-url="{% url 'notes:update' note.id %}">
                         <div class="note-title">{{ note.title }}</div>
                         <div class="note-body">{{ note.body | safe }}</div>
                     </li>
                   {% endfor %}
-                {% else %}
-                  <li>No notes are available.</li>
-              {% endif %}
               </ul>
             </nav>
         </div>
+        {% endif %}
 
         <div class="col-xs-8">
 
