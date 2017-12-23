@@ -3,7 +3,7 @@
 {% block content %}
 
 <div id="welcome" class="row"><div class="col-xs-12"><main>
-    
+
     <h3>Sign Up for ElevenNote</h3>
 
     {% if form.errors %}
@@ -14,7 +14,7 @@
         {% endfor %}
     {% endif %}
 
-    <form action="{% url 'register' %}" method="post" accept-charset="utf-8">
+    <form action="{% url 'accounts:register' %}" method="post" accept-charset="utf-8">
         {% csrf_token %}
         {% for field in form %}
         <p>
@@ -27,9 +27,9 @@
         {% endfor %}
         <input type="hidden" name="next" value="{{ next }}" />
         <input class="btn btn-default" type="submit" value="Sign Up"/>
-        <span class="login">Already have an account? <a href="{% url 'login' %}">Sign in</a></span>
+        <span class="login">Already have an account? <a href="{% url 'accounts:login' %}">Sign in</a></span>
     </form>
-    
+
 </main></div></div>
 
 {% endblock %}

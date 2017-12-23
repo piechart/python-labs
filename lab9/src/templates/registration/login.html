@@ -3,7 +3,7 @@
 {% block content %}
 
 <div id="welcome" class="row"><div class="col-xs-12"><main>
-    
+
     <h3>Sign In</h3>
 
     {% if form.errors %}
@@ -14,7 +14,7 @@
         {% endfor %}
     {% endif %}
 
-    <form action="{% url 'login' %}" method="post" accept-charset="utf-8">
+    <form action="{% url 'accounts:login' %}" method="post" accept-charset="utf-8">
         {% csrf_token %}
         {% for field in form %}
         <p>
@@ -29,7 +29,7 @@
         {% endfor %}
         <input type="hidden" name="next" value="{{ next }}" />
         <input class="btn btn-default" type="submit" value="Sign in"/>
-        <span class="login">Don't have an account? <a href="{% url 'register' %}">Sign up!</a></span>
+        <span class="login">Don't have an account? <a href="{% url 'accounts:register' %}">Sign up!</a></span>
     </form>
 
 </main></div></div>
