@@ -3,14 +3,16 @@
 <html>
   <head>
     <title>Elevennote</title>
-    {% block head %}
     <!-- <link rel="stylesheet" media="all" href='{% static "bootstrap/css/bootstrap.css" %}'> -->
     <link rel="stylesheet" media="all" href='{% static "bootstrap/css/bootstrap.min.css" %}'>
     <link rel="stylesheet" media="all" href='{% static "elevennote/main.css" %}'>
     <link rel="stylesheet" type="text/css" media="screen" href="https://fonts.googleapis.com/css?family=Merriweather:400,300,300italic|Oxygen:400,300,700" />
-    {% endblock %}
     <script src='{% static "elevennote/jquery.js" %}'></script>
     <script src='{% static "elevennote/main.js" %}'></script>
+    {% if notes %}
+    <link rel="stylesheet" media="all" href='{% static "bootstrap/css/bootstrap-tagsinput.css" %}'>
+    <script src='{% static "bootstrap/js/bootstrap-tagsinput.js" %}'></script>
+    {% endif %}
 
   </head>
 
