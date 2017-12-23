@@ -3,7 +3,7 @@
 {% block content %}
 
 {% if latest_note_list %}
-<div style="margin-left: 30px; font-size: 115%">
+<div class="leftmarginblock" style="font-size: 115%">
   <h4 style="color: black">Notes</h4><br>
   {% for note in latest_note_list %}
   <li>
@@ -14,7 +14,10 @@
   {% endfor %}
 </div>
 {% else %}
+<div class="leftmarginblock">
   <p>No notes are available.</p>
+  But you can create <a href="{% url 'notes:create' %}">a new one</a>
+</div>
 {% endif %}
 
 {% if is_paginated %}
