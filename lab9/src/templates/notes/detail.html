@@ -1,4 +1,8 @@
 <a href="../">Back</a>
 <hr>
 <h1>{{ note.title }}</h1>
-<p>{{ note.body }}</p>
+<p>
+   {{ note.body | safe }}
+   <hr>
+   <a href="{% url 'notes:update' note.id %}">Edit</a>
+</p>

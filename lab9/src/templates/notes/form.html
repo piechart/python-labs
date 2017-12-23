@@ -1,3 +1,5 @@
+{% extends "base.html" %}
+
 {% block content %}
 
 {% if form.errors %}
@@ -12,7 +14,7 @@
     {% csrf_token %}
     {% for field in form %}
     <p>
-        <label>{{ field.label }}</label>
+        <label>{{ field.label }}</label><br>
         {% if field.errors %}
     <div class="alert alert-danger" role="alert">
             {{ field.errors }}
@@ -26,3 +28,13 @@
 </form>
 
 {% endblock %}
+
+
+{% if object %}
+  <form action="{% url 'notes:delete' object.pk %}" method="post" id="delete-note-form">
+    {% csrf_token %}
+    <a class="btn btn-default" id="delete-note">
+      <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+    </a>
+  </form>
+{% endif %}
