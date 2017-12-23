@@ -18,6 +18,9 @@ ALLOWED_HOSTS = []
 
 LOGIN_REDIRECT_URL = '/'
 
+DJANGO_WYSIWYG_FLAVOR = 'ckeditor'
+DJANGO_WYSIWYG_MEDIA_URL = STATIC_URL + "ckeditor/"
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -27,6 +30,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'notes',
     'accounts',
+    'django_wysiwyg',
+    'django-ckeditor',
 ]
 
 MIDDLEWARE_CLASSES = [

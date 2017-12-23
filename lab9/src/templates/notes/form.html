@@ -10,7 +10,11 @@
     {% endfor %}
 {% endif %}
 
+{% if object %}
+<form action="{% url 'notes:update' object.pk %}" method="post" accept-charset="utf-8">
+{% else %}
 <form action="{% url 'notes:create' %}" method="post" accept-charset="utf-8">
+{% endif %}
     {% csrf_token %}
     {% for field in form %}
     <p>
@@ -27,9 +31,6 @@
     <input class="button small" type="submit" value="Submit"/>
 </form>
 
-{% endblock %}
-
-
 {% if object %}
   <form action="{% url 'notes:delete' object.pk %}" method="post" id="delete-note-form">
     {% csrf_token %}
@@ -38,3 +39,5 @@
     </a>
   </form>
 {% endif %}
+
+{% endblock %}
