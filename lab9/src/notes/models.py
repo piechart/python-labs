@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 
 class Note(models.Model):
     title = models.CharField(max_length=200)
-    tags = models.CharField(max_length=100)
+    tags = models.CharField()
     body = models.TextField()
     pub_date = models.DateTimeField('date published')
     owner = models.ForeignKey(User, related_name='notes', on_delete=models.CASCADE, default=1)
