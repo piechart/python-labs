@@ -30,7 +30,7 @@
                         style="color: white"
                         {% endif %}
                         >{{ note.title }}</div>
-                        <div class="note-body">{{ note.body | safe }}</div>
+                        <div class="note-body">{{ note.body|truncatechars:100 | safe }}</div>
                     </li>
                   {% endfor %}
               </ul>
