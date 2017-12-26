@@ -2,4 +2,3 @@
 lab9/src/config/settings/settings.ini
 __pycache__/
 *.pyc
-lab9/src/config/settings/static/
