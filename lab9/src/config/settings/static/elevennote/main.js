@@ -8,9 +8,9 @@
     $("#id_title").attr("placeholder", "Title your note");
 
     // set tags input
-    $("#id_tags").attr("placeholder", "Add tag..");
     $("#id_tags").tagsinput();
-
+    $("#id_tags").attr("placeholder", "Add tag..");
+    
     // set sidebar height
     $('#sidebar').css("height", window.innerHeight - 55 );
 

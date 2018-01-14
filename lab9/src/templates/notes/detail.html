@@ -7,6 +7,8 @@
 <p>
    {{ note.body | safe }}
    <hr>
+   Tags: <input type="text" value="{{ note.tags }}" style="border: none" disabled/>
+   <hr>
    <a href="{% url 'notes:update' note.id %}">Edit</a>
 </p>
 </div>
