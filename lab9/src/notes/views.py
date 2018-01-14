@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.core.urlresolvers import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 
 from .models import Note
 from .forms import NoteForm
@@ -14,7 +15,7 @@ from .mixins import NoteMixin
 @login_required
 def index(request):
     # latest_note_list = Note.objects.order_by('-pub_date')[:5]
-    latest_note_list = Note.objects.filter(owner=request.user).order_by('-pub_date')[:5]
+    latest_note_list = Note.objects.filter(owner=request.user).order_by('-pub_date')
     context = {
         'latest_note_list': latest_note_list,
     }
@@ -35,7 +36,11 @@ class NoteList(ListView):
         return super(NoteList, self).dispatch(*args, **kwargs)
 
     def get_queryset(self):
-        return Note.objects.filter(owner=self.request.user).order_by('-pub_date')
+        notes = Note.objects.filter(owner=self.request.user).order_by('-pub_date')
+        search_query = self.request.GET.get('q')
+        if search_query:
+            notes = list(filter(lambda item: search_query in item.title or search_query in item.body, notes))
+        return notes
 
 
 class NoteDetail(DetailView):
