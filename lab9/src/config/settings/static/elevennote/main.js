@@ -22,7 +22,7 @@
            }
        });
 
-       $("#test_btn").click(function(e){
+       $("#btn_UpdateNote").click(function(e){
          e.preventDefault();
          for (var instance in CKEDITOR.instances)
             CKEDITOR.instances[instance].updateElement();
