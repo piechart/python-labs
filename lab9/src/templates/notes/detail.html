@@ -9,7 +9,7 @@
    <hr>
    Tags: <input type="text" value="{{ note.tags }}" style="border: none" disabled/>
    <hr>
-   <a href="{% url 'notes:update' note.id %}">Edit</a>
+   <input class="btn btn-default" type="button" onclick="window.location='{% url 'notes:update' note.id %}'" value="Edit Note"/>
 </p>
 </div>
 {% endblock %}
