@@ -19,7 +19,7 @@
             e.preventDefault();
             if (window.confirm("Are you sure?")) {
                $("#delete-note-form").submit();
-           }
+            }
        });
 
        $("#btn_UpdateNote").click(function(e){
@@ -59,7 +59,9 @@
 }); })(jQuery);
 
 function tagClicked(tag) {
-
+  if (window.confirm("Wanna perform search by tag '" + tag + "'?")) {
+     window.location = "/notes/?q=tag:" + tag
+  }
 }
 
 function onAjaxSuccess(data){

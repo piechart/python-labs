@@ -12,6 +12,8 @@ from .models import Note
 from .forms import NoteForm
 from .mixins import NoteMixin
 
+import re
+
 @login_required
 def index(request):
     # latest_note_list = Note.objects.order_by('-pub_date')[:5]
@@ -39,7 +41,13 @@ class NoteList(ListView):
         notes = Note.objects.filter(owner=self.request.user).order_by('-pub_date')
         search_query = self.request.GET.get('q')
         if search_query:
-            notes = list(filter(lambda item: search_query in item.title or search_query in item.body, notes))
+            if 'tag:' in search_query:
+                # search by tag
+                tag = search_query.replace('tag:', '')
+                notes = list(filter(lambda item: tag in item.tags.split(","), notes))
+            else:
+                # search by title and body content
+                notes = list(filter(lambda item: search_query in item.title or search_query in item.body, notes))
         return notes
 
 
